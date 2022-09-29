@@ -1,5 +1,5 @@
 [package]
-name = "graphics_from_scratch"
+name = "graphics-from-scratch"
 version = "0.1.0"
 edition = "2021"
 
