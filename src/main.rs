@@ -1,4 +1,7 @@
 use std::time::Duration;
+// use std::vec;
+
+// use rand::Rng;
 
 mod structures;
 use structures::{Vec3, Tri, Mesh, Matrix4x4};
@@ -13,7 +16,6 @@ use sdl2::{
 };
 
 
-
 // Window size
 const WIDTH: usize = 800;
 const HEIGHT: usize = 600;
@@ -24,6 +26,9 @@ pub fn main() {
     // Create a new window
     let (mut canvas, mut event_pump) = init_sdl();
 
+    // // RNG
+    // let mut rng = rand::thread_rng();
+
     let z_near = 0.1; // Near clipping plane
     let z_far = 1000.0; // Far clipping plane
     let a = WIDTH as f32/HEIGHT as f32; // Aspect ratio
@@ -32,23 +37,23 @@ pub fn main() {
 
     let cube_mesh = Mesh::new(vec![
         // SOUTH
-        Tri::from_points([-1.0, -1.0, -1.0,-1.0,  1.0, -1.0, 1.0,  1.0, -1.0]),
-        Tri::from_points([-1.0, -1.0, -1.0, 1.0,  1.0, -1.0, 1.0, -1.0, -1.0]),
+        Tri::from([-1.0, -1.0, -1.0,-1.0,  1.0, -1.0, 1.0,  1.0, -1.0]),
+        Tri::from([-1.0, -1.0, -1.0, 1.0,  1.0, -1.0, 1.0, -1.0, -1.0]),
         // EAST
-        Tri::from_points([ 1.0, -1.0, -1.0, 1.0,  1.0, -1.0, 1.0,  1.0,  1.0]),
-        Tri::from_points([ 1.0, -1.0, -1.0, 1.0,  1.0,  1.0, 1.0, -1.0,  1.0]),
+        Tri::from([ 1.0, -1.0, -1.0, 1.0,  1.0, -1.0, 1.0,  1.0,  1.0]),
+        Tri::from([ 1.0, -1.0, -1.0, 1.0,  1.0,  1.0, 1.0, -1.0,  1.0]),
         // NORTH
-        Tri::from_points([ 1.0, -1.0,  1.0, 1.0,  1.0,  1.0,-1.0,  1.0,  1.0]),
-        Tri::from_points([ 1.0, -1.0,  1.0,-1.0,  1.0,  1.0,-1.0, -1.0,  1.0]),
+        Tri::from([ 1.0, -1.0,  1.0, 1.0,  1.0,  1.0,-1.0,  1.0,  1.0]),
+        Tri::from([ 1.0, -1.0,  1.0,-1.0,  1.0,  1.0,-1.0, -1.0,  1.0]),
         // WEST
-        Tri::from_points([-1.0, -1.0,  1.0,-1.0,  1.0,  1.0,-1.0,  1.0, -1.0]),
-        Tri::from_points([-1.0, -1.0,  1.0,-1.0,  1.0, -1.0,-1.0, -1.0, -1.0]),
+        Tri::from([-1.0, -1.0,  1.0,-1.0,  1.0,  1.0,-1.0,  1.0, -1.0]),
+        Tri::from([-1.0, -1.0,  1.0,-1.0,  1.0, -1.0,-1.0, -1.0, -1.0]),
         // TOP
-        Tri::from_points([-1.0,  1.0, -1.0,-1.0,  1.0,  1.0, 1.0,  1.0,  1.0]),
-        Tri::from_points([-1.0,  1.0, -1.0, 1.0,  1.0,  1.0, 1.0,  1.0, -1.0]),
+        Tri::from([-1.0,  1.0, -1.0,-1.0,  1.0,  1.0, 1.0,  1.0,  1.0]),
+        Tri::from([-1.0,  1.0, -1.0, 1.0,  1.0,  1.0, 1.0,  1.0, -1.0]),
         // BOTTOM
-        Tri::from_points([-1.0, -1.0,  1.0,-1.0, -1.0, -1.0, 1.0, -1.0, -1.0]),
-        Tri::from_points([-1.0, -1.0,  1.0, 1.0, -1.0, -1.0, 1.0, -1.0,  1.0])
+        Tri::from([-1.0, -1.0,  1.0,-1.0, -1.0, -1.0, 1.0, -1.0, -1.0]),
+        Tri::from([-1.0, -1.0,  1.0, 1.0, -1.0, -1.0, 1.0, -1.0,  1.0])
     ]);
     // Projection matrix
     let mut proj_matrix: Matrix4x4;
@@ -59,7 +64,8 @@ pub fn main() {
     let mut rot_matrix_x: Matrix4x4;
     let mut rot_matrix: Matrix4x4;
 
-    let mut translation = Vec3::with(0.0, 0.0, 2.0);
+    let mut translation = Vec3::from([0.0, 0.0, 2.5]);
+    let camera = Vec3::from([0.0, 0.0, 0.0]);
 
     'running: loop {
         for event in event_pump.poll_iter() {
@@ -71,6 +77,7 @@ pub fn main() {
                 _ => {}
             }
         }
+
         canvas.set_draw_color(Color::RGB(30, 34, 34));
         canvas.clear();
 
@@ -102,38 +109,31 @@ pub fn main() {
         // Multiply rotation matrices
         rot_matrix = rot_matrix_z * rot_matrix_x;
 
-        translation.z += 0.015;
+        if translation.z < 10.0 {
+            translation.z += 0.01;
+        }
 
         // Draw Triangles
-        let mut rotated: Tri = Tri::new();
-        let mut translated:Tri = Tri::from_points([0.0; 9]);
-        let mut projected = Tri::from_points([0.0; 9]);
+        let mut rotated: Tri;
+        let mut translated: Tri;
+        let mut projected: Tri;
         let mut normal: Vec3;
-        let mut line1: Vec3;
-        let mut line2: Vec3;
+        let mut vec_to_camera: Vec3;
         for triangle in cube_mesh.tris.iter() {
             // Rotate
-            for i in 0..3 {
-                triangle.p[i].dot_by_matrix(&rot_matrix, &mut rotated.p[i]);
-            }
+            rotated = *triangle * rot_matrix;
+
+            // Translate
+            translated = rotated + translation;
 
             // Calculate normal
-            line1 = rotated.p[1] - rotated.p[0];
-            line2 = rotated.p[2] - rotated.p[0];
-            normal = line1.cross(&line2);
-            normal.normalize();
-
-            // For now, just check if z is positive
-            if normal.z < 0.0 {
-
-                // Translate
-                translated.p[0] = rotated.p[0] + translation;
-                translated.p[1] = rotated.p[1] + translation;
-                translated.p[2] = rotated.p[2] + translation;
+            normal = translated.normal();
+            // Calculate vector from camera to triangle
+            vec_to_camera = translated.p[0] - camera;
+            if normal.dot(&vec_to_camera) < 0.0 {
                 // Project triangles from 3D to 2D
-                for i in 0..3 {
-                    translated.p[i].dot_by_matrix(&proj_matrix, &mut projected.p[i]);
-                }
+                projected = translated * proj_matrix;
+
                 // Scale into view
                 for i in 0..3 {
                     projected.p[i].x += 1.0;
@@ -143,11 +143,17 @@ pub fn main() {
                 }
 
                 // Draw triangles to screen
-                projected.draw(&mut canvas, Color::RGB(255, 255, 255));
+                projected.draw_filled(
+                    &mut canvas,
+                    Color::RGB(255, 255, 255)
+                );
+                projected.draw(
+                    &mut canvas,
+                    Color::RGB(0, 0, 0)
+                );
             }
         }
 
-        // canvas.clear();
         canvas.present();
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
