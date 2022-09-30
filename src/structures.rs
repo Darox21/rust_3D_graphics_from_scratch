@@ -1,5 +1,6 @@
 use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign};
-
+use std::fs;
+use std::io::Read;
 
 use sdl2::gfx::primitives::DrawRenderer;
 
@@ -9,6 +10,7 @@ use sdl2::pixels::Color;
 use sdl2::video::Window;
 use sdl2::rect::Point;
 
+/// A 3D vector
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vec3 {
     pub x: f32,
@@ -16,15 +18,20 @@ pub struct Vec3 {
     pub z: f32
 }
 
+/// A 3D triangle, with 3 vertices
+/// and an optional color
 #[derive(Clone, Copy, Debug)]
 pub struct Tri {
-    pub p: [Vec3; 3]
+    pub p: [Vec3; 3],
+    pub c: Option<Color>
 }
 
+/// A Vector of 3D triangles
 pub struct Mesh {
     pub tris: Vec<Tri>
 }
 
+/// A 4x4 matrix for 3D transformations
 #[derive(Clone, Copy, Debug)]
 pub struct Matrix4x4 {
     pub m: [[f32; 4]; 4]
@@ -39,6 +46,9 @@ impl Vec3 {
         }
     }
 
+
+    /// Multiplies the vector by a 4x4 matrix, returning a new vector
+    /// The extra 4th dimension is assumed is used to scale the vector
     pub fn dot_by_matrix(&self, m: &Matrix4x4, p_out: &mut Self){
         p_out.x = self.x * m.m[0][0] + self.y * m.m[1][0] + self.z * m.m[2][0] + m.m[3][0];
         p_out.y = self.x * m.m[0][1] + self.y * m.m[1][1] + self.z * m.m[2][1] + m.m[3][1];
@@ -48,6 +58,10 @@ impl Vec3 {
         if w != 0.0 {
             *p_out /= w;
         }
+    }
+
+    pub fn mag(&self) -> f32 {
+        (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 
     pub fn dot(&self, v: &Self) -> f32 {
@@ -177,17 +191,18 @@ impl Tri {
         normal
     }
 
-    pub fn draw(&self, canvas: &mut Canvas<Window>, color: Color) {
-        canvas.set_draw_color(color);
-        canvas.trigon(
+    pub fn draw(&self, canvas: &mut Canvas<Window>, outline_color: Color) {
+        canvas.set_draw_color(outline_color);
+        canvas.aa_trigon(
             self.p[0].x as i16, self.p[0].y as i16,
             self.p[1].x as i16, self.p[1].y as i16,
             self.p[2].x as i16, self.p[2].y as i16,
-            color
+            outline_color
         ).unwrap();
     }
 
-    pub fn draw_filled(&self, canvas: &mut Canvas<Window>, color: Color) {
+    pub fn draw_filled(&self, canvas: &mut Canvas<Window>) {
+        let color = self.c.unwrap_or(Color::WHITE);
         canvas.set_draw_color(color);
         canvas.filled_trigon(
             self.p[0].x as i16, self.p[0].y as i16,
@@ -204,8 +219,18 @@ impl From<[f32; 9]> for Tri {
             p: [
                 Vec3::from([p[0], p[1], p[2]]),
                 Vec3::from([p[3], p[4], p[5]]),
-                Vec3::from([p[6], p[7], p[8]])
-            ]
+                Vec3::from([p[6], p[7], p[8]]),
+            ],
+            c: None
+        }
+    }
+}
+
+impl From<[Vec3; 3]> for Tri {
+    fn from(p: [Vec3; 3]) -> Self {
+        Self {
+            p: [p[0], p[1], p[2]],
+            c: None
         }
     }
 }
@@ -219,7 +244,8 @@ impl Add<Vec3> for Tri {
                 self.p[0] + other,
                 self.p[1] + other,
                 self.p[2] + other
-            ]
+            ],
+            c: self.c
         }
     }
 }
@@ -233,7 +259,8 @@ impl Mul<Matrix4x4> for Tri {
                 self.p[0] * other,
                 self.p[1] * other,
                 self.p[2] * other
-            ]
+            ],
+            c: self.c
         }
     }
 }
@@ -243,6 +270,58 @@ impl Mesh {
     pub fn new(tris: Vec<Tri>) -> Self {
         Self { tris }
     }
+
+    pub fn load_from_file(filename: &str) -> Self {
+        let mut tris = Vec::new();
+        let mut tri: [Vec3; 3];
+        let mut vertex: Vec3;
+        let mut vertex_buffer: Vec<Vec3> = Vec::new();
+        let mut relationships: [Vec<i32>;3];
+        let mut line_elements: Vec<&str>;
+
+
+        let mut file = fs::File::open(filename).unwrap();
+        let mut contents = String::new();
+
+        file.read_to_string(&mut contents).unwrap();
+
+        let lines: Vec<&str> = contents.split("\n").collect();
+        for line in lines {
+            line_elements = line.split(" ").map(|s| s.trim()).collect();
+            match line_elements[..] {
+                ["v", x, y, z, ..] => {
+                    // println!("Vertex: {}, {}, {}", x, y, z);
+                    vertex = Vec3::new(x.parse().unwrap(), y.parse().unwrap(), z.parse().unwrap());
+                    vertex_buffer.push(vertex);
+                },
+                ["f", v1, v2, v3, ..] => {
+                    // println!("Face: {}, {}, {}", v1, v2, v3);
+                    relationships = [
+                        v1.split("/").map(|s| s.parse().unwrap()).collect(),
+                        v2.split("/").map(|s| s.parse().unwrap()).collect(),
+                        v3.split("/").map(|s| s.parse().unwrap()).collect()
+                    ];
+                    tri = [
+                        vertex_buffer[relationships[0][0] as usize - 1],
+                        vertex_buffer[relationships[1][0] as usize - 1],
+                        vertex_buffer[relationships[2][0] as usize - 1]
+                    ];
+                    tris.push(Tri::from(tri));
+                },
+                _ => ()
+            }
+        }
+        Self::new(tris)
+    }
+
+    pub fn sort(&mut self) {
+        self.tris.sort_by(|a, b| {
+            let dist_a = (a.p[0].z + a.p[1].z + a.p[2].z) / 3.0;
+            let dist_b = (b.p[0].z + b.p[1].z + b.p[2].z) / 3.0;
+            dist_b.partial_cmp(&dist_a).unwrap()
+        });
+    }
+
 }
 
 
