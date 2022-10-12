@@ -12,3 +12,6 @@ features = ["ttf","image","gfx","mixer"]
 
 [dependencies.rand]
 version = "0.8.4"
+
+[dependencies.nalgebra]
+version = "0.31.1"
