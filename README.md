@@ -1,10 +1,11 @@
-<img src="assets/Untitled.png" alt="Some badly rendered teapot" />
-
 # 3D Graphics from Scratch
 
+<img src="assets/Untitled.png" alt="Some badly rendered teapot" />
+
 A basic cpu renderer written in Rust.
-This is a port loosely based in the C tutorial series by Javidx9
-https://www.youtube.com/watch?v=ih20l3pJoeU
+This is a port loosely based in [the C tutorial series](https://www.youtube.com/watch?v=ih20l3pJoeU)
+by [Javidx9](https://www.youtube.com/@javidx9).
+
 
 This is a work in progress, used mostly for me to understand the
 aplications of linear algebra in computer graphics.
