@@ -15,3 +15,7 @@ version = "0.8.4"
 
 [dependencies.nalgebra]
 version = "0.31.1"
+
+# Some optimization for debug builds
+[profile.dev]
+opt-level = 1
