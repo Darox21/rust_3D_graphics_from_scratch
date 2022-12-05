@@ -1,7 +1,5 @@
 <img src="assets/Untitled.png" alt="Some badly rendered teapot" />
 
-[![MIT/Apache][s3]][li]
-
 # 3D Graphics from Scratch
 
 A basic cpu renderer written in Rust.
